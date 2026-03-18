@@ -1,0 +1,5 @@
+51. Identify slow-running query and suggest index strategy.
+52. Which columns should be indexed for revenue dashboard?
+53. Create materialized view for monthly revenue summary
+54. Compare CTE vs Subquery performance for Top customer query
+55. Optimize query calculating cohort retention.
