@@ -1,0 +1,4 @@
+-- Question 1 Calculate total revenue generated in the dataset. -- 
+
+select sum(price+freight_value) as revenue 
+from order_items
