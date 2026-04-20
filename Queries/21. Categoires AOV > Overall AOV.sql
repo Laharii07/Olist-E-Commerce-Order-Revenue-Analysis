@@ -15,7 +15,7 @@ Product Development: It provides a signal for expansion. If "Home Decor" has a h
 -- Question 21 Identify categories where average order value is higher than overall AOV.--
 WITH category_aov AS (
     SELECT 
-        p.product_category_name,
+        t.product_category_name,
         AVG(order_total) AS category_avg_order_value
     FROM (
         SELECT 
@@ -26,7 +26,7 @@ WITH category_aov AS (
         JOIN products p ON oi.product_id = p.product_id
         GROUP BY oi.order_id, p.product_category_name
     ) t
-    GROUP BY p.product_category_name
+    GROUP BY t.product_category_name
 )
 
 SELECT *
@@ -34,3 +34,4 @@ FROM category_aov
 WHERE category_avg_order_value > (
     SELECT AVG(price + freight_value) FROM order_items
 );
+   
