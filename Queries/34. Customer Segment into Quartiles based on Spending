@@ -1,1 +1,34 @@
+/*
+This query is the foundation for RFM (Recency, Frequency, Monetary) Analysis. By using quartiles, you are moving away from looking at raw dollar amounts and instead looking at a customer's relative standing within your entire ecosystem.
+
+Why Analysts Use This Query:
+Creating Marketing Tiers: Instead of manual thresholds, NTILE(4) automatically divides your database into four equal-sized groups.
+
+Quartile 1: Your "Whales" or VIPs. They get high-touch support and exclusive previews.
+
+Quartile 4: Your "Budget" or "Occasional" shoppers. They might need deep discounts or "win-back" campaigns to stay engaged.
+
+Resource Allocation: If you have a limited budget for physical catalogs or gifts, you can target only the top 25% (Quartile 1) to ensure the highest possible Return on Investment (ROI).
+
+Price Sensitivity Testing: Analysts study how different quartiles react to price changes. Typically, Quartile 1 is less price-sensitive and cares more about quality/speed, while Quartile 4 is highly sensitive to shipping costs and price hikes.
+
+Identifying "Aspiring" Customers: By monitoring customers who move from Quartile 2 to Quartile 1, the business can identify what specific behaviors (like joining a loyalty program) lead to higher spending.
+
+Removing Outlier Bias: Unlike an average (which can be skewed by one person spending $1 million), quartiles show you the distribution of the "typical" high spender versus the "typical" low spender.
+*/
+
+-- Question 34 Segment customers into quartiles based on spending (NTILE).--
+WITH customer_spending AS (
+    SELECT 
+        c.customer_unique_id,
+        SUM(oi.price + oi.freight_value) AS total_spent
+    FROM orders o
+    JOIN customers c ON o.customer_id = c.customer_id
+    JOIN order_items oi ON o.order_id = oi.order_id
+    GROUP BY c.customer_unique_id
+)
+
+SELECT *,
+    NTILE(4) OVER (ORDER BY total_spent DESC) AS spending_quartile
+FROM customer_spending;
 
