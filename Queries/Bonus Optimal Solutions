@@ -1,5 +1,138 @@
-51. Identify slow-running query and suggest index strategy.
-52. Which columns should be indexed for revenue dashboard?
-53. Create materialized view for monthly revenue summary
-54. Compare CTE vs Subquery performance for Top customer query
-55. Optimize query calculating cohort retention.
+-- Question 51 Identify slow-running query and suggest index strategy.--
+SELECT 
+    c.customer_state,
+    SUM(oi.price + oi.freight_value) AS revenue
+FROM orders o
+JOIN customers c ON o.customer_id = c.customer_id
+JOIN order_items oi ON o.order_id = oi.order_id
+GROUP BY c.customer_state;
+
+-- Orders
+CREATE NONCLUSTERED INDEX idx_orders_customer 
+ON orders(customer_id, order_id);
+
+-- Order Items
+CREATE NONCLUSTERED INDEX idx_orderitems_order 
+ON order_items(order_id)
+INCLUDE (price, freight_value);
+
+-- Customers
+CREATE NONCLUSTERED INDEX idx_customers_state 
+ON customers(customer_id, customer_state);
+
+-- Question 52 Which columns should be indexed for revenue dashboard? --
+-- Time-based filtering
+CREATE INDEX idx_orders_date 
+ON orders(order_purchase_timestamp);
+
+-- Join keys
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+CREATE INDEX idx_orderitems_order_id ON order_items(order_id);
+CREATE INDEX idx_orderitems_product_id ON order_items(product_id);
+
+-- Aggregation columns
+CREATE INDEX idx_orderitems_revenue 
+ON order_items(order_id)
+INCLUDE (price, freight_value);
+
+-- Category analysis
+CREATE INDEX idx_products_category 
+ON products(product_category_name);
+
+-- Question 53 Create materialized view for monthly revenue summary.--
+CREATE VIEW vw_monthly_revenue
+WITH SCHEMABINDING
+AS
+SELECT 
+    YEAR(o.order_purchase_timestamp) AS yr,
+    MONTH(o.order_purchase_timestamp) AS mn,
+    SUM(oi.price + oi.freight_value) AS total_revenue,
+    COUNT_BIG(*) AS row_count
+FROM dbo.orders o
+JOIN dbo.order_items oi 
+    ON o.order_id = oi.order_id
+GROUP BY 
+    YEAR(o.order_purchase_timestamp),
+    MONTH(o.order_purchase_timestamp);
+GO
+
+CREATE UNIQUE CLUSTERED INDEX idx_vw_monthly_revenue
+ON vw_monthly_revenue(yr, mn);
+
+-- Question 54 Compare CTE vs Subquery performance for top customer query.--
+WITH customer_spending AS (
+    SELECT 
+        c.customer_unique_id,
+        SUM(oi.price + oi.freight_value) AS total_spent
+    FROM orders o
+    JOIN customers c ON o.customer_id = c.customer_id
+    JOIN order_items oi ON o.order_id = oi.order_id
+    GROUP BY c.customer_unique_id
+)
+SELECT *
+FROM customer_spending
+WHERE total_spent > (
+    SELECT AVG(total_spent) FROM customer_spending
+);
+
+
+SELECT *
+FROM (
+    SELECT 
+        c.customer_unique_id,
+        SUM(oi.price + oi.freight_value) AS total_spent
+    FROM orders o
+    JOIN customers c ON o.customer_id = c.customer_id
+    JOIN order_items oi ON o.order_id = oi.order_id
+    GROUP BY c.customer_unique_id
+) t
+WHERE total_spent > (
+    SELECT AVG(total_spent)
+    FROM (
+        SELECT 
+            SUM(oi.price + oi.freight_value) AS total_spent
+        FROM orders o
+        JOIN order_items oi ON o.order_id = oi.order_id
+        GROUP BY o.customer_id
+    ) x
+);
+-- Question 55 Optimize query calculating cohort retention.--
+
+WITH base_data AS (
+    SELECT 
+        c.customer_unique_id,
+        DATEFROMPARTS(YEAR(o.order_purchase_timestamp), 
+                      MONTH(o.order_purchase_timestamp), 1) AS order_month,
+        MIN(DATEFROMPARTS(YEAR(o.order_purchase_timestamp), 
+                          MONTH(o.order_purchase_timestamp), 1)) 
+            OVER (PARTITION BY c.customer_unique_id) AS cohort_month
+    FROM orders o
+    JOIN customers c ON o.customer_id = c.customer_id
+),
+cohort_counts AS (
+    SELECT 
+        cohort_month,
+        order_month,
+        COUNT(DISTINCT customer_unique_id) AS customers
+    FROM base_data
+    GROUP BY cohort_month, order_month
+),
+cohort_size AS (
+    SELECT 
+        cohort_month,
+        COUNT(DISTINCT customer_unique_id) AS total_customers
+    FROM base_data
+    WHERE cohort_month = order_month
+    GROUP BY cohort_month
+)
+
+SELECT 
+    cc.cohort_month,
+    cc.order_month,
+    cc.customers,
+    cs.total_customers,
+    cc.customers * 100.0 / cs.total_customers AS retention_rate
+FROM cohort_counts cc
+JOIN cohort_size cs 
+    ON cc.cohort_month = cs.cohort_month
+ORDER BY cc.cohort_month, cc.order_month;
