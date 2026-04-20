@@ -1,1 +1,21 @@
+/*
+This query is used for Feedback Gap Analysis and Product Catalog Auditing. It identifies "Blind Spots" in your inventory where you have zero data on customer satisfaction.
 
+Why Analysts Use This Query:
+Identifying "Silent" Products: Products without reviews are risky. You don’t know if they are low quality or if there's a technical issue preventing users from leaving feedback.
+
+Conversion Optimization: In e-commerce, products with zero reviews have significantly lower conversion rates. Analysts use this list to trigger "Review Request" email campaigns or offer incentives (like loyalty points) to the next few buyers to get those first critical reviews.
+
+Catalog Clean-up: If a product has been in the system for a long time but has never been reviewed, it might indicate that it isn't selling at all. This helps in deciding which items to discontinue or put on clearance.
+
+Customer Experience Research: This list helps pinpoint if certain categories (like "industrial parts") are naturally less likely to be reviewed, allowing you to adjust your expectations for "normal" feedback levels in those areas.
+
+Improving Search Rankings: Many search algorithms penalize products with no reviews. By identifying these items, the marketing team can focus on "seeding" reviews to improve their visibility in search results.
+*/
+
+-- Question 18 Find products that were never reviewed.--
+SELECT p.product_id, p.product_category_name
+FROM products p
+LEFT JOIN order_items oi ON p.product_id = oi.product_id
+LEFT JOIN order_reviews r ON oi.order_id = r.order_id
+WHERE r.review_id IS NULL;
